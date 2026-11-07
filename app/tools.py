@@ -5,10 +5,13 @@
 """
 
 import json
+import random
+from datetime import datetime
 from functools import cache
 from pathlib import Path
 
 DATA_DIR = Path(__file__).resolve().parent.parent / "data"
+LEARNING_LOG_DIR = Path(__file__).resolve().parent.parent / "learning_log"
 MAX_RESULTS = 3
 
 
@@ -32,7 +35,8 @@ def search_glossary(query: str) -> str:
     """講座の用語集から用語を検索し、定義と、どの回で扱うかを返す。
 
     AIエンジニアリングの用語や、この講座（AIE2026）に固有の言葉について
-    答える前に使うこと。query には調べたい用語を1つだけ入れる（例: "LoRA"）。
+    答える前に使うこと。比較する用語は、1つの query にまとめて指定する
+    （例: "LoRA QLoRA"）。
     """
     q = _normalize(query)
     if not q:
@@ -77,3 +81,33 @@ def get_lecture_summary(lecture: int) -> str:
         available = sorted(p.stem for p in (DATA_DIR / "lectures").glob("*.md"))
         return f"第{lecture}回の要点はまだありません。用意されている回: {', '.join(available)}"
     return path.read_text(encoding="utf-8")
+
+
+def make_quiz(lecture: int) -> str:
+    """指定した回の用語から 1つを選び、確認問題と答えを返す。
+
+    「第2回の確認問題を出して」のように、復習用の問題を求められたときに使う。
+    """
+    terms = [entry for entry in load_glossary() if entry["lecture"] == lecture]
+    if not terms:
+        return f"第{lecture}回の用語は用語集にありません。"
+
+    entry = random.choice(terms)
+    return f"問題:「{entry['term']}」の意味は？\n答え:{entry['definition']}"
+
+
+def save_learning_log(content: str) -> str:
+    """学習の記録を learning_log/ に保存する。
+
+    利用者が学んだことや振り返りを保存したいと明示したときに使う。
+    保存する内容を content にまとめ、保存前に利用者の承認を得る。
+    """
+    if not content.strip():
+        return "保存する内容が空のため、学習記録を保存しませんでした。"
+
+    LEARNING_LOG_DIR.mkdir(parents=True, exist_ok=True)
+    timestamp = datetime.now().strftime("%Y%m%d-%H%M%S-%f")
+    path = LEARNING_LOG_DIR / f"{timestamp}.md"
+    with path.open("x", encoding="utf-8") as f:
+        f.write(content.strip() + "\n")
+    return f"学習記録を learning_log/{path.name} に保存しました。"
