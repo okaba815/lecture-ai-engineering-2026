@@ -39,6 +39,45 @@ def test_lecture_summary():
     assert "まだありません" in tools.get_lecture_summary(99)
 
 
+def test_make_quiz_uses_a_term_from_the_requested_lecture():
+    result = tools.make_quiz(2)
+    assert result.startswith("問題:「")
+    question, answer = result.split("\n答え:")
+    selected_term = question.removeprefix("問題:「").removesuffix("」の意味は？")
+    matching_terms = [
+        entry for entry in tools.load_glossary()
+        if entry["lecture"] == 2 and entry["term"] == selected_term
+    ]
+    assert len(matching_terms) == 1
+    assert answer == matching_terms[0]["definition"]
+
+
+def test_make_quiz_reports_when_lecture_has_no_terms():
+    assert "用語集にありません" in tools.make_quiz(99)
+
+
+def test_save_learning_log_creates_a_markdown_file(monkeypatch, tmp_path):
+    log_dir = tmp_path / "learning_log"
+    monkeypatch.setattr(tools, "LEARNING_LOG_DIR", log_dir)
+
+    result = tools.save_learning_log("今日はツール承認について学んだ。")
+
+    files = list(log_dir.glob("*.md"))
+    assert len(files) == 1
+    assert files[0].read_text(encoding="utf-8") == "今日はツール承認について学んだ。\n"
+    assert files[0].name in result
+
+
+def test_save_learning_log_skips_empty_content(monkeypatch, tmp_path):
+    log_dir = tmp_path / "learning_log"
+    monkeypatch.setattr(tools, "LEARNING_LOG_DIR", log_dir)
+
+    result = tools.save_learning_log("  \n ")
+
+    assert "空" in result
+    assert not log_dir.exists()
+
+
 def test_default_question_of_lecture1_is_answerable_from_glossary():
     """第1回の既定の質問（app.ask）は、第3回のエージェントが用語集で正しく答えられること。"""
     from app.ask import DEFAULT_QUESTION
