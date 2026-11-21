@@ -57,9 +57,13 @@ def page_label(cases_path: Path, labels_path: Path) -> None:
         return
     labels = load_labels(labels_path) if labels_path.exists() else {}
 
-    if "index" not in st.session_state:
-        done = [i for i, c in enumerate(cases) if c["id"] in labels]
-        st.session_state.index = min(len(done), len(cases) - 1) if done else 0
+    paths = (str(cases_path.resolve()), str(labels_path.resolve()))
+    if "index" not in st.session_state or st.session_state.get("labeling_paths") != paths:
+        st.session_state.labeling_paths = paths
+        st.session_state.index = next(
+            (i for i, case in enumerate(cases) if case["id"] not in labels),
+            len(cases) - 1,
+        )
 
     i = st.session_state.index
     case = cases[i]
